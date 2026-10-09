@@ -20,7 +20,8 @@ def version(value):
 
 
 def download(url, limit=150 * 1024 * 1024):
-    if not url.startswith(('https://api.github.com/', 'https://github.com/' + REPO + '/releases/download/')):
+    if not url.startswith(('https://github.com/' + REPO + '/releases/download/',
+                           'https://github.com/' + REPO + '/releases/latest/download/')):
         raise ValueError('Untrusted release URL')
     req = urllib.request.Request(url, headers={'User-Agent': 'RRM-Desktop-Agent', 'Accept': 'application/vnd.github+json'})
     with urllib.request.urlopen(req, timeout=60) as response:
@@ -44,15 +45,12 @@ def verify_manifest(raw, signature, public_key=None):
 
 
 def latest():
-    entries = json.loads(download(f'https://api.github.com/repos/{REPO}/releases?per_page=100', 2 * 1024 * 1024))
-    releases = [r for r in entries if not r['draft'] and not r['prerelease'] and r['tag_name'].startswith(PREFIX)]
-    if not releases:
-        raise ValueError('Noch kein Desktop-Agent-Release veröffentlicht')
-    release = max(releases, key=lambda r: version(r['tag_name'][len(PREFIX):]))
-    url = f"https://github.com/{REPO}/releases/download/{release['tag_name']}/"
-    manifest = verify_manifest(download(url + 'manifest.json', 65536), download(url + 'manifest.sig', 1024))
-    if release['tag_name'] != PREFIX + manifest['version']:
-        raise ValueError('Manifest/tag mismatch')
+    # The dedicated repository publishes only desktop releases. The public
+    # download redirect avoids the shared-IP unauthenticated API quota.
+    latest_url = f'https://github.com/{REPO}/releases/latest/download/'
+    manifest = verify_manifest(download(latest_url + 'manifest.json', 65536),
+                               download(latest_url + 'manifest.sig', 1024))
+    url = f"https://github.com/{REPO}/releases/download/{PREFIX}{manifest['version']}/"
     return manifest, url
 
 
