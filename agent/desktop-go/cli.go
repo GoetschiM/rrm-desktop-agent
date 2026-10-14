@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 func nativeTarget() (string, error) {
@@ -39,7 +40,18 @@ func main() {
 		if !releaseVersion.MatchString(version) {
 			fail(errors.New("release version not set"))
 		}
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"version": version, "platform": runtime.GOOS, "architecture": runtime.GOARCH})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		rows, err := processRows(ctx)
+		if err != nil || len(rows) == 0 {
+			fail(errors.New("native process self-test failed"))
+		}
+		data := metrics(ctx, Config{IP: "127.0.0.1", HubURL: "http://127.0.0.1", path: filepath.Join(os.TempDir(), "rrm-self-test", "config.json")})
+		memory, ok := data["mem_total_gb"].(float64)
+		if !ok || memory <= 0 {
+			fail(errors.New("native memory self-test failed"))
+		}
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"version": version, "platform": runtime.GOOS, "architecture": runtime.GOARCH, "processes": len(rows)})
 		return
 	}
 	selected := 0
