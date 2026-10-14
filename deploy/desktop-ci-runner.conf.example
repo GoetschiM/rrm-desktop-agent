@@ -1,0 +1,9 @@
+# Install on CT128 as /etc/rrm-desktop-ci-runner.conf, owned by root, chmod 600.
+# Registration token is short-lived; never commit it or reuse the main runner's credentials.
+RRM_CI_RUNNER_ENABLED=1
+RRM_CI_RUNNER_REPO=GoetschiM/rrm-desktop-agent
+RRM_CI_RUNNER_USER=rrm-desktop-ci
+RRM_CI_RUNNER_DIR=/opt/ci/rrm-desktop-ci
+RRM_CI_RUNNER_TOKEN_FILE=/etc/rrm-desktop-ci-runner.token
+# Run: RRM_CI_RUNNER_CONFIG=/etc/rrm-desktop-ci-runner.conf bash actions-runner-install-v1.0.001.sh
+# Both repository-scoped runners advertise rrm-ci and run in the same Linux container.

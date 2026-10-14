@@ -10,9 +10,17 @@ import time
 import urllib.request
 
 binary = Path(sys.argv[1]).resolve()
+# Acceptance must not replace a production service on the test machine.
+if sys.platform == 'win32':
+    probe = subprocess.run(['sc.exe', 'query', 'RRMDesktopAgent'], capture_output=True)
+    if probe.returncode == 0:
+        raise SystemExit('RRMDesktopAgent already exists; use a clean acceptance device.')
+elif Path('/Library/LaunchDaemons/ch.goetschi.rrm-agent.plist').exists():
+    raise SystemExit('RRM launchd service already exists; use a clean acceptance device.')
+test_token = 'ci-service-test-token-not-production'
 with tempfile.TemporaryDirectory(prefix='rrm-service-test-', dir=os.environ.get('ProgramData') if sys.platform=='win32' else None) as folder:
     config = Path(folder)/'config.json'
-    config.write_text(json.dumps({'token':'ci-test-token','hub_url':'http://127.0.0.1:18181',
+    config.write_text(json.dumps({'token':test_token,'hub_url':'http://127.0.0.1:18181',
                                   'allowed_ips':['127.0.0.1'],'port':19998,'bind_ip':'127.0.0.1',
                                   'version':Path('agent/desktop/version.txt').read_text().strip(),
                                   'target':'windows-x64' if sys.platform=='win32' else 'macos-'+('arm64' if platform.machine()=='arm64' else 'x64'),
@@ -23,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='rrm-service-test-', dir=os.environ.get(
         for _ in range(30):
             time.sleep(1)
             try:
-                request=urllib.request.Request('http://127.0.0.1:19998/procs',headers={'Authorization':'Bearer ci-test-token'})
+                request=urllib.request.Request('http://127.0.0.1:19998/procs',headers={'Authorization':'Bearer '+test_token})
                 result=json.loads(urllib.request.urlopen(request,timeout=5).read())
                 if result['procs']:break
             except Exception:pass
@@ -38,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='rrm-service-test-', dir=os.environ.get(
             state=json.loads((config.parent/'update-state.json').read_text())
             assert not state.get('error'), state.get('error')
             assert state.get('last_update') and state['current_version'] != installed['version'], 'No signed upgrade activated'
-            request=urllib.request.Request('http://127.0.0.1:19998/version',headers={'Authorization':'Bearer ci-test-token'})
+            request=urllib.request.Request('http://127.0.0.1:19998/version',headers={'Authorization':'Bearer '+test_token})
             current=json.loads(urllib.request.urlopen(request,timeout=10).read())
             assert current['version']==state['current_version']
             print('Signed GitHub release downloaded, verified, activated and read back:',current['version'])

@@ -1,62 +1,91 @@
 name: Desktop agent packages
 on:
   pull_request:
-    paths: ['agent/desktop/**', 'tests/test_desktop_agent.py', '.github/workflows/desktop-agent.yml']
   push:
     tags: ['desktop-agent-v*']
   workflow_dispatch:
+    inputs:
+      native_acceptance_complete:
+        description: 'Windows and macOS install, restart, migration, update and rollback accepted for this release tag'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
   group: desktop-agent-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: windows-x64
-          - os: macos-15-intel
-            target: macos-x64
-          - os: macos-15
-            target: macos-arm64
-    runs-on: ${{ matrix.os }}
+  verify-pr:
+    runs-on: [self-hosted, linux, x64, rrm-ci]
+    timeout-minutes: 20
+    outputs:
+      uploaded: ${{ steps.artifacts.outcome }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/desktop-go/go.mod
+          cache: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r agent/desktop/requirements.txt pyinstaller==6.20.0
-      - run: python -m unittest discover -s tests -p test_desktop_agent.py -v
-      - name: Bundle agent and updater dependencies
-        shell: bash
+      - name: Legacy installer and manifest compatibility tests
         run: |
-          EXTRA=""
-          if [ "${{ runner.os }}" = Windows ]; then EXTRA="--hidden-import win32timezone --hidden-import win32serviceutil --hidden-import servicemanager"; fi
-          pyinstaller --clean --onefile --name rrm-agent --paths agent/desktop --add-data 'agent/desktop/version.txt:.' --add-data 'agent/desktop/release-public-key.txt:.' $EXTRA agent/desktop/main.py
-      - name: Frozen binary smoke test
-        shell: bash
+          pip install -r agent/desktop/requirements.txt
+          python -m unittest discover -s tests -p test_desktop_agent.py -v
+      - name: Go contracts, updater rollback and monitoring
+        working-directory: agent/desktop-go
         run: |
-          if [ "${{ runner.os }}" = Windows ]; then dist/rrm-agent.exe --self-test; else dist/rrm-agent --self-test; fi
-      - name: Real Windows service installation and process query
-        if: runner.os == 'Windows'
-        run: python agent/desktop/smoke_service.py dist/rrm-agent.exe
-      - name: Real macOS launchd installation and process query
-        if: runner.os == 'macOS'
-        run: sudo "$(which python)" agent/desktop/smoke_service.py dist/rrm-agent
-      - run: python agent/desktop/package.py --target ${{ matrix.target }}
+          test -z "$(gofmt -l *.go)"
+          go vet ./...
+          go test -race ./...
+      - name: Build and package all desktop targets on CT128
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          VERSION=$(cat agent/desktop/version.txt)
+          mkdir -p dist desktop-dist
+          cd agent/desktop-go
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-X main.version=$VERSION" -o ../../dist/rrm-agent.exe .
+          cd ../..
+          python agent/desktop/package.py --target windows-x64
+          cd agent/desktop-go
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-X main.version=$VERSION" -o ../../dist/rrm-agent .
+          cd ../..
+          python agent/desktop/package.py --target macos-x64
+          cd agent/desktop-go
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-X main.version=$VERSION" -o ../../dist/rrm-agent .
+          go build -trimpath -ldflags "-X main.version=$VERSION" -o ../../dist/rrm-agent-linux-check .
+          cd ../..
+          python agent/desktop/package.py --target macos-arm64
+          dist/rrm-agent-linux-check --self-test
+          file dist/*
+          sha256sum desktop-dist/*
+      - name: Retain packages locally on CT128
+        run: |
+          LOCAL="$HOME/rrm-builds/$GITHUB_REPOSITORY/$GITHUB_SHA"
+          mkdir -p "$LOCAL"
+          cp desktop-dist/*.zip "$LOCAL/"
+          echo "Linux cross-build packages retained on CT128: $LOCAL" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        id: artifacts
+        continue-on-error: true
         with:
-          name: ${{ matrix.target }}
+          name: desktop-agent-packages
           path: desktop-dist/*.zip
+          retention-days: 7
+      - name: Report artifact availability separately from build success
+        if: always()
+        run: |
+          echo "Package upload: ${{ steps.artifacts.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Native Windows SCM / macOS launchd acceptance must run on target devices before release." >> "$GITHUB_STEP_SUMMARY"
   release:
-    if: github.repository == 'GoetschiM/rrm-desktop-agent' && startsWith(github.ref, 'refs/tags/desktop-agent-v')
-    needs: build
-    runs-on: ubuntu-latest
+    if: github.repository == 'GoetschiM/rrm-desktop-agent' && github.event_name == 'workflow_dispatch' && inputs.native_acceptance_complete && startsWith(github.ref, 'refs/tags/desktop-agent-v') && needs.verify-pr.outputs.uploaded == 'success'
+    needs: verify-pr
+    runs-on: [self-hosted, linux, x64, rrm-ci]
     permissions:
       contents: write
+    environment: desktop-agent-release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -64,42 +93,16 @@ jobs:
           python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
+          name: desktop-agent-packages
           path: desktop-dist
-          merge-multiple: true
       - run: pip install cryptography
-      - name: Validate tag and sign manifest
+      - name: Sign complete manifest
         env:
           AGENT_RELEASE_SIGNING_KEY: ${{ secrets.AGENT_RELEASE_SIGNING_KEY }}
         run: |
           test "$GITHUB_REF_NAME" = "desktop-agent-v$(cat agent/desktop/version.txt)"
           python agent/desktop/package.py --sign
-      - name: Publish complete signed release
+      - name: Publish signed packages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" desktop-dist/* --verify-tag --title "Desktop Agent $(cat agent/desktop/version.txt)" --notes 'Windows x64 and macOS Intel/Apple Silicon. Signed automatic updates every 15 minutes.'
-  verify-upgrade:
-    needs: release
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-15-intel, macos-15]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r agent/desktop/requirements.txt pyinstaller==6.20.0
-      - name: Build preceding-version pilot with the same pinned root
-        shell: bash
-        run: |
-          echo '0.9.999' > agent/desktop/version.txt
-          EXTRA=""
-          if [ "${{ runner.os }}" = Windows ]; then EXTRA="--hidden-import win32timezone --hidden-import win32serviceutil --hidden-import servicemanager"; fi
-          pyinstaller --clean --onefile --name rrm-agent --paths agent/desktop --add-data 'agent/desktop/version.txt:.' --add-data 'agent/desktop/release-public-key.txt:.' $EXTRA agent/desktop/main.py
-      - name: Windows real signed upgrade
-        if: runner.os == 'Windows'
-        run: python agent/desktop/smoke_service.py dist/rrm-agent.exe --upgrade
-      - name: macOS real signed upgrade
-        if: runner.os == 'macOS'
-        run: sudo "$(which python)" agent/desktop/smoke_service.py dist/rrm-agent --upgrade
+        run: gh release create "$GITHUB_REF_NAME" desktop-dist/* --verify-tag --title "Desktop Agent $(cat agent/desktop/version.txt)" --notes 'Go agent cross-built on CT128 for Windows x64 and macOS Intel/Apple Silicon.'
