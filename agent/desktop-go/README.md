@@ -18,7 +18,7 @@ The agent is cross-built on CT128 for Windows x64, macOS Intel and macOS Apple S
 
 Run go test ./... and go vet ./... locally. CT128 also runs go test -race ./... and builds all target binaries. .github/workflows/desktop-agent.yml packages the existing single-executable ZIP format. Package uploads are best-effort because GitHub storage can be full; the build report states upload availability separately. CT128 retains packages at $HOME/rrm-builds/GoetschiM/goetschi-control/<commit>/ (or the corresponding repository path). Local copies require operator retention management.
 
-Release publication remains restricted to GoetschiM/rrm-desktop-agent and an explicit desktop-agent-v tag, requires all packages uploaded, and uses the desktop-agent-release environment. Configure environment reviewers to require native acceptance before publication. No tag, signed release or deployment is created by this PR.
+Release publication remains restricted to GoetschiM/rrm-desktop-agent and a manual workflow dispatch on an explicit desktop-agent-v tag with native_acceptance_complete confirmed, requires all packages uploaded, and uses the desktop-agent-release environment. Tag pushes build packages but never publish automatically. Configure environment reviewers to require native acceptance before publication. No tag, signed release or deployment is created by this PR.
 
 ## Acceptance and deployment gates
 

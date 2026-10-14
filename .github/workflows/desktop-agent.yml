@@ -4,6 +4,11 @@ on:
   push:
     tags: ['desktop-agent-v*']
   workflow_dispatch:
+    inputs:
+      native_acceptance_complete:
+        description: 'Windows and macOS install, restart, migration, update and rollback accepted for this release tag'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -20,7 +25,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: agent/desktop-go/go.mod
-          cache-dependency-path: agent/desktop-go/go.sum
+          cache: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -75,7 +80,7 @@ jobs:
           echo "Package upload: ${{ steps.artifacts.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Native Windows SCM / macOS launchd acceptance must run on target devices before release." >> "$GITHUB_STEP_SUMMARY"
   release:
-    if: github.repository == 'GoetschiM/rrm-desktop-agent' && startsWith(github.ref, 'refs/tags/desktop-agent-v') && needs.verify-pr.outputs.uploaded == 'success'
+    if: github.repository == 'GoetschiM/rrm-desktop-agent' && github.event_name == 'workflow_dispatch' && inputs.native_acceptance_complete && startsWith(github.ref, 'refs/tags/desktop-agent-v') && needs.verify-pr.outputs.uploaded == 'success'
     needs: verify-pr
     runs-on: [self-hosted, linux, x64, rrm-ci]
     permissions:
