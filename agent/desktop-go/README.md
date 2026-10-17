@@ -29,3 +29,31 @@ Apple Developer ID signing/notarization remains a separate distribution gate fro
 A Go updater staged by a new installation can update future Go agents. Existing Python updater copies continue to understand these ZIPs and CLI flags; migration from an already-installed Python agent still requires an actual signed upgrade pilot before broad rollout.
 
 For nonprivileged protocol checks use --run --config with bind_ip=127.0.0.1, a separate port and an isolated hub. --preview exposes only health/version and never registers.
+
+
+## Security telemetry (opt-in)
+The Go agent now supports independent, disabled-by-default settings in its
+existing JSON configuration:
+
+    "security_files": ["C:\\Windows\\System32\\drivers\\etc\\hosts"],
+    "security_auth": true
+
+SecurityFiles supports up to 16 configured, absolute, regular files, limited
+to 1 MiB each. It records first baseline, subsequent creation/change/deletion,
+and submits no file content, path or digest. Paths are reported only as
+basenames. Events are queued in memory until an authenticated hub response,
+with bounded capacity. Durability across crashes/network outages is **not**
+yet guaranteed.
+
+On Windows, security_auth=true reads Security Event Log ID 4625 using wevtutil
+and reports failed logon event IDs, timestamps and validated network source
+IP when available. Usernames, XML and raw messages are not transmitted.
+The agent service must run under an account with permission to read the
+Windows Security Log. Windows logon events are polled for a 3-minute window,
+deduplicated by event record ID at the hub. No automatic account lockouts,
+firewall blocks, malware remediation or software patching occur.
+
+Requires Goetschi Control Security Center support in the hub (see PR #135).
+A successful Go cross-build does not substitute native Windows service
+installation and Event Log permissions acceptance. Default installation
+continues to use the older monitoring-only behavior.
