@@ -199,7 +199,9 @@ func heartbeatLoop(ctx context.Context, c Config) {
 				res.Body.Close()
 				if res.StatusCode != 200 {
 					log.Print("heartbeat rejected")
-				} else {security.commit()}
+				} else {
+					security.commit()
+				}
 			} else {
 				log.Print("heartbeat unavailable")
 			}
