@@ -168,7 +168,25 @@ func heartbeatLoop(ctx context.Context, c Config) {
 		sample, cancel := context.WithTimeout(ctx, 10*time.Second)
 		security.scan(true)
 		payload := metrics(sample, c)
-		if len(security.paths) > 0 {payload["security"] = security.snapshot()}
+		if len(security.paths) > 0 || c.SecurityAuth {
+			status := security.snapshot()
+			if c.SecurityAuth {
+				sources := status["sources"].([]string)
+				sources = append(sources, "windows_eventlog")
+				status["sources"] = sources
+				authEvents, err := collectWindowsAuth(sample)
+				if err != nil {
+					status["errors"] = append(status["errors"].([]string), err.Error())
+				} else {
+					events := append(status["events"].([]securityEvent), authEvents...)
+					if len(events) > 48 {
+						events = events[:48]
+					}
+					status["events"] = events
+				}
+			}
+			payload["security"] = status
+		}
 		raw, _ := json.Marshal(payload)
 		cancel()
 		req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(c.HubURL, "/")+"/api/agent/register", bytes.NewReader(raw))
