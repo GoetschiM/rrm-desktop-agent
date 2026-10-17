@@ -161,11 +161,15 @@ func runAgent(ctx context.Context, c Config) error {
 }
 func heartbeatLoop(ctx context.Context, c Config) {
 	client := &http.Client{Timeout: 10 * time.Second}
+	security := newSecurityCollector(c.SecurityFiles)
 	tick := time.NewTicker(time.Minute)
 	defer tick.Stop()
 	for {
 		sample, cancel := context.WithTimeout(ctx, 10*time.Second)
-		raw, _ := json.Marshal(metrics(sample, c))
+		security.scan(true)
+		payload := metrics(sample, c)
+		if len(security.paths) > 0 {payload["security"] = security.snapshot()}
+		raw, _ := json.Marshal(payload)
 		cancel()
 		req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(c.HubURL, "/")+"/api/agent/register", bytes.NewReader(raw))
 		if err == nil {
@@ -177,7 +181,7 @@ func heartbeatLoop(ctx context.Context, c Config) {
 				res.Body.Close()
 				if res.StatusCode != 200 {
 					log.Print("heartbeat rejected")
-				}
+				} else {security.commit()}
 			} else {
 				log.Print("heartbeat unavailable")
 			}
