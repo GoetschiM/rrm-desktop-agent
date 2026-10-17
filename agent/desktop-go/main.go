@@ -17,19 +17,19 @@ import (
 var version = "development"
 
 type Config struct {
-	Token        string   `json:"token"`
+	Token         string   `json:"token"`
 	SecurityFiles []string `json:"security_files,omitempty"`
 	SecurityAuth  bool     `json:"security_auth,omitempty"`
-	HubURL       string   `json:"hub_url"`
-	AllowedIPs   []string `json:"allowed_ips"`
-	BindIP       string   `json:"bind_ip"`
-	Port         int      `json:"port"`
-	Target       string   `json:"target"`
-	IP           string   `json:"ip,omitempty"`
-	Version      string   `json:"version"`
-	ActiveBinary string   `json:"active_binary,omitempty"`
-	AutoUpdate   *bool    `json:"auto_update,omitempty"`
-	path         string
+	HubURL        string   `json:"hub_url"`
+	AllowedIPs    []string `json:"allowed_ips"`
+	BindIP        string   `json:"bind_ip"`
+	Port          int      `json:"port"`
+	Target        string   `json:"target"`
+	IP            string   `json:"ip,omitempty"`
+	Version       string   `json:"version"`
+	ActiveBinary  string   `json:"active_binary,omitempty"`
+	AutoUpdate    *bool    `json:"auto_update,omitempty"`
+	path          string
 }
 
 func loadConfig(path string) (Config, error) {
