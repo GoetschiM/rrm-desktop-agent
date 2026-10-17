@@ -19,6 +19,7 @@ var version = "development"
 type Config struct {
 	Token        string   `json:"token"`
 	SecurityFiles []string `json:"security_files,omitempty"`
+	SecurityAuth  bool     `json:"security_auth,omitempty"`
 	HubURL       string   `json:"hub_url"`
 	AllowedIPs   []string `json:"allowed_ips"`
 	BindIP       string   `json:"bind_ip"`
