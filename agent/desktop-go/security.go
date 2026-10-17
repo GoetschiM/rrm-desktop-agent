@@ -115,6 +115,7 @@ func (s *securityCollector) snapshot() map[string]any {
 	events := append([]securityEvent{}, s.pending...)
 	errors := append([]string{}, s.errors...)
 	return map[string]any{
+		"schema_version": 1,
 		"sources":       []string{"file_integrity"},
 		"watched_files": len(s.paths),
 		"errors":        errors,
