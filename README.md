@@ -1,9 +1,19 @@
-# RRM Desktop Agent 1.0.004 (Go migration)
+# Götschi Control – Public Desktop Agent Releases v1.0.001
 
-Windows x64 and macOS Intel/Apple Silicon monitoring agent, cross-built with CGO disabled on Proxmox CT128. Android is built separately with Flutter on the same Linux container.
+**Development has moved to the [Goetschi Labs organisation source repository](https://github.com/Goetschi-Lab-s/goetschi-control).** All Windows/macOS Desktop Agent source, installer code, tests and CI are maintained there, under [`agent/desktop-go/`](https://github.com/Goetschi-Lab-s/goetschi-control/tree/main/agent/desktop-go), [`agent/desktop/`](https://github.com/Goetschi-Lab-s/goetschi-control/tree/main/agent/desktop), and [`.github/workflows/desktop-agent.yml`](https://github.com/Goetschi-Lab-s/goetschi-control/blob/main/.github/workflows/desktop-agent.yml).
 
-The Go agent implements monitoring, authenticated HTTP/heartbeat, native service installation and signed automatic updates with rollback. Existing personalized PowerShell/macOS installers and Ed25519 update trust root remain compatible. See agent/desktop-go/README.md for contracts, tests and remaining native acceptance gates.
+This **public repository is a release distribution channel, not a second development project**. The main source repository is private; access to source code requires organisation permission. Public customers and installed agents do not need private GitHub credentials to download release assets.
 
-This repository requires its own repository-scoped Linux runner on CT128. deploy/desktop-ci-runner.conf.example configures a separate service user/directory without replacing goetschi-control's runner. Both advertise rrm-ci. Registration and activation remain pending until CT128 access is available.
+## Download / update channels
 
-All compilation and packaging runs on Linux. Real Windows SCM and macOS launchd/install/update acceptance must still run on clean target devices before a signed release. macOS binaries are not Apple-notarized. Release publication is gated by the desktop-agent-release environment; configure reviewers for native acceptance. No release tag is created by the migration PR.
+- [Windows x64 and macOS Intel/Apple Silicon Desktop Agent releases](https://github.com/GoetschiM/rrm-desktop-agent/releases) — signed `desktop-agent-vX.Y.Z` manifests and complete ZIP packages.
+- Android Götschi Control releases use `android-vX.Y.Z` tags in the **same** public release channel; use the official app update UI for the installed instance.
+- The Desktop Agent update code deliberately validates **this repository path** (`GoetschiM/rrm-desktop-agent`) in its existing signed manifests. That field and the pinned Ed25519 public key must remain unchanged until existing clients receive a separate, verified signed transition update.
+
+## Release policy
+
+New builds and native Windows/macOS acceptance are performed in the [canonical private repository](https://github.com/Goetschi-Lab-s/goetschi-control). Publication of a Desktop Agent release requires a manual approval and environment review, an authenticated cross-repository release token, the original Ed25519 signing key, verified checksums, and a complete five-asset public release. Android is published from the canonical Android CI.
+
+**Historical tags and release assets must not be deleted or replaced.** Existing devices continue using them for upgrades and recovery. This repo does not accept Agent source PRs, duplicate runner registrations or local builds; open development PRs and issues in [Götschi Control](https://github.com/Goetschi-Lab-s/goetschi-control/issues).
+
+Migration reference: [DESKTOP-AGENT-SINGLE-SOURCE-v1.0.001.md](https://github.com/Goetschi-Lab-s/goetschi-control/blob/main/docs/DESKTOP-AGENT-SINGLE-SOURCE-v1.0.001.md).
