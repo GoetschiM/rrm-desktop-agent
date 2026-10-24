@@ -1,4 +1,4 @@
-# Götschi Control – Public Desktop Agent Releases v1.0.001
+# G-Control – Public Desktop Agent Releases v1.0.002
 
 **Development has moved to the [Goetschi Labs organisation source repository](https://github.com/Goetschi-Lab-s/goetschi-control).** All Windows/macOS Desktop Agent source, installer code, tests and CI are maintained there, under [`agent/desktop-go/`](https://github.com/Goetschi-Lab-s/goetschi-control/tree/main/agent/desktop-go), [`agent/desktop/`](https://github.com/Goetschi-Lab-s/goetschi-control/tree/main/agent/desktop), and [`.github/workflows/desktop-agent.yml`](https://github.com/Goetschi-Lab-s/goetschi-control/blob/main/.github/workflows/desktop-agent.yml).
 
@@ -7,7 +7,7 @@ This **public repository is a release distribution channel, not a second develop
 ## Download / update channels
 
 - [Windows x64 and macOS Intel/Apple Silicon Desktop Agent releases](https://github.com/GoetschiM/rrm-desktop-agent/releases) — signed `desktop-agent-vX.Y.Z` manifests and complete ZIP packages.
-- Android Götschi Control releases use `android-vX.Y.Z` tags in the **same** public release channel; use the official app update UI for the installed instance.
+- Android G-Control releases use `android-vX.Y.Z` tags in the **same** public release channel; use the official app update UI for the installed instance.
 - The Desktop Agent update code deliberately validates **this repository path** (`GoetschiM/rrm-desktop-agent`) in its existing signed manifests. That field and the pinned Ed25519 public key must remain unchanged until existing clients receive a separate, verified signed transition update.
 
 ## Release policy
